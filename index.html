@@ -1623,7 +1623,7 @@
         </div>
         <div class="cred" data-reveal>
           <span class="medal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3.5v5c0 4.6-3.3 8-8 9.5-4.7-1.5-8-4.9-8-9.5v-5L12 3z"/><path d="M9 12l2 2 4-4"/></svg></span>
-          <span class="cred-tag">BMC Software & BMC Helix</span>
+          <span class="cred-tag">BMC Software • BMC Helix</span>
           <h4>Parceiros Oficiais</h4>
           <p>Somos parceiros oficiais da BMC Software e da BMC Helix, com atuação em soluções de automação, ITSM e gestão de operações.</p>
           <ul><li>Control-M</li><li>Helix</li></ul>
@@ -2263,11 +2263,182 @@ window.__pdfLib = (function(){
     saveLocal();
     toast("Retomamos onde você parou, na pergunta "+(idx+1)+" de "+Q.length+".");
   }
+  
+/*novo codigo debug */
+  function verificarDiagnosticoExistente(){
 
+  var email = String(LEAD.email || "").trim().toLowerCase();
+
+  if(!email){
+    trackStart();
+    renderGate();
+    return;
+  }
+
+  var btn = dxNext;
+
+  if(btn){
+    btn.disabled = true;
+    btn.setAttribute("data-txt-anterior", btn.textContent);
+    btn.textContent = "Verificando...";
+  }
+
+  fetch("/api/diagnostico/consultar?email=" + encodeURIComponent(email), {
+    method: "GET",
+    credentials: "same-origin",
+    headers: {
+      "Accept": "application/json"
+    }
+  })
+  .then(function(res){
+
+    if(!res.ok){
+      throw new Error("Falha na consulta");
+    }
+
+    return res.json();
+
+  })
+  .then(function(data){
+
+    if(data && data.encontrado && data.status === "concluido"){
+
+      abrirDiagnosticoExistente(data);
+      return;
+    }
+
+    trackStart();
+    renderGate();
+
+  })
+  .catch(function(err){
+
+    console.error("Erro ao consultar diagnóstico:", err);
+
+    var ge = document.getElementById("f-erro");
+
+    if(ge){
+      ge.textContent = "Não foi possível verificar se este e-mail já possui um diagnóstico. Tente novamente.";
+      ge.hidden = false;
+    }
+
+  })
+  .finally(function(){
+
+    if(btn){
+      btn.disabled = false;
+
+      var txt = btn.getAttribute("data-txt-anterior");
+
+      if(txt){
+        btn.textContent = txt;
+        btn.removeAttribute("data-txt-anterior");
+      }
+    }
+
+  });
+}
+
+  /*fim do novo codigo debug */ 
+  
+  /*novo codigo debug 2*/
+function abrirDiagnosticoExistente(data){
+
+  var d = data.diagnostico || data;
+
+  LEAD.nome = d.nome || LEAD.nome || "";
+  LEAD.email = d.email || LEAD.email || "";
+  LEAD.empresa = d.empresa || LEAD.empresa || "";
+  LEAD.cargo = d.cargo || LEAD.cargo || "";
+
+  TRACK.status = "concluido";
+  TRACK.concluido = true;
+  TRACK.enviadoInicio = false;
+
+  var indice = Number(d.indice || 0);
+  var faixa = d.faixa || "Diagnóstico concluído";
+  var custo = Number(d.custo_estimado_ano || 0);
+  var horas = Number(d.horas_indisponiveis_ano || 0);
+
+  dxFoot.hidden = true;
+  stepsEl.hidden = true;
+  dxLabel.textContent = "Seu diagnóstico";
+
+  var h =
+    '<div class="rx-existing">' +
+
+      '<div class="rx-top-txt">' +
+        '<span class="rx-k">Diagnóstico já realizado</span>' +
+        '<h2>' + esc(faixa) + '</h2>' +
+        '<p>Este e-mail já possui um diagnóstico concluído. Recuperamos o resultado armazenado anteriormente.</p>' +
+      '</div>' +
+
+      '<div class="costcard" style="margin-top:24px;">' +
+        '<p class="ch-lab">Índice de maturidade</p>' +
+        '<p class="ch-fig">' +
+          '<b>' + indice + '</b>' +
+          '<span class="ch-per">de 100</span>' +
+        '</p>' +
+      '</div>' +
+
+      (horas > 0 ?
+        '<div class="costcard" style="margin-top:16px;">' +
+          '<p class="ch-lab">Indisponibilidade anual</p>' +
+          '<p class="ch-fig"><b>' + NUM.format(horas) + '</b><span class="ch-per">horas / ano</span></p>' +
+        '</div>'
+      : '') +
+
+      (custo > 0 ?
+        '<div class="costcard" style="margin-top:16px;">' +
+          '<p class="ch-lab">Custo estimado</p>' +
+          '<p class="ch-fig"><b>' + BRL.format(custo) + '</b><span class="ch-per">por ano</span></p>' +
+        '</div>'
+      : '') +
+
+      (d.dimensoes ?
+        '<div class="fold open" style="margin-top:20px;">' +
+          '<div class="fold-in"><div class="fold-pad">' +
+            '<b>Dimensões</b>' +
+            '<p>' + esc(d.dimensoes) + '</p>' +
+          '</div></div>' +
+        '</div>'
+      : '') +
+
+      (d.respostas ?
+        '<div class="fold open" style="margin-top:12px;">' +
+          '<div class="fold-in"><div class="fold-pad">' +
+            '<b>Respostas registradas</b>' +
+            '<p style="white-space:pre-line;">' + esc(d.respostas) + '</p>' +
+          '</div></div>' +
+        '</div>'
+      : '') +
+
+      '<div class="rx-foot">' +
+        '<div class="rx-actions">' +
+          '<button class="btn btn-ghost" id="rx-existing-close" type="button">Fechar</button>' +
+        '</div>' +
+      '</div>' +
+
+    '</div>';
+
+  swap(h, function(){
+
+    var b = document.getElementById("rx-existing-close");
+
+    if(b){
+      b.addEventListener("click", close);
+    }
+
+  });
+}
+  
+  /*fim do novo codigo debug 2*/
+  
   function trackStart(){
     TRACK.sessao="s"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
     TRACK.status="iniciado"; TRACK.etapa=0; TRACK.pergunta=0; TRACK.enviadoInicio=true; saveLocal(); hsSend();
   }
+  
   /* a pergunta que está na tela agora */
   function trackAt(i){
     if(TRACK.concluido || !TRACK.enviadoInicio) return;
@@ -2820,7 +2991,7 @@ window.__pdfLib = (function(){
      + '<button class="btn btn-cyan" id="rx-pdf" type="button">Baixar em PDF'
      +   '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 11l5 5 5-5M4 21h16"/></svg></button>'
      + '<button class="btn btn-ghost" id="rx-copy" type="button">Copiar resultado</button>'
-     + '<button class="btn btn-ghost" id="rx-restart" type="button">Refazer</button></div></div>';
+     + '<button class="btn btn-ghost" id="rx-restart" type="button">Fechar diagnóstico</button></div></div>';
     swap(h, function(){
       var arc=document.getElementById("arc"), num=document.getElementById("ringnum");
       requestAnimationFrame(function(){
@@ -2835,7 +3006,7 @@ window.__pdfLib = (function(){
       bindUsers(); bindNegocio();
       bindFolds(); bindRoutes();
       document.getElementById("rx-copy").addEventListener("click", copyResult);
-      document.getElementById("rx-restart").addEventListener("click", restart);
+      document.getElementById("rx-restart").addEventListener("click", close);
       document.getElementById("rx-pdf").addEventListener("click", baixarPDF);
       magnets();
     });
@@ -3394,10 +3565,19 @@ window.__pdfLib = (function(){
   }
 
   /* ---------- controle ---------- */
+  
   function next(){
-    if(idx<0){ if(!validateIdent()) return; trackStart(); renderGate(); return; }
-    avancar();
+  if(idx<0){
+    if(!validateIdent()) return;
+
+    verificarDiagnosticoExistente();
+    return;
   }
+  avancar();
+}
+  }
+ /* ---------- controle ---------- */ 
+ 
   function back(){
     if(advancing) return;
     if(idx<0) return;
