@@ -52,7 +52,7 @@ var CFG = {
   AGENDA_ESPECIALISTA: "https://w.app/xgagoh",
   AGENDA_COMERCIAL: "https://w.app/6igqwk",
   HUBSPOT_PORTAL_ID: "49225425",
-  HUBSPOT_FORM_GUID: ""
+  HUBSPOT_FORM_GUID: "3fb4ab12-65cf-4e71-badf-e8cd40bf6af8"
 };
 ```
 
