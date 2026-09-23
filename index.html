@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -305,8 +306,8 @@
     color:var(--ink-soft); margin-bottom:var(--s4); display:block;}
   .railwrap{position:relative;}
   .rail{position:relative; overflow:hidden; padding-block:12px 16px;
-    -webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);
-    mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);}
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent);
+    mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent);}
   .track{display:flex; gap:var(--s3); width:max-content; align-items:stretch;
     animation:marquee 38s linear infinite; will-change:transform;}
   .track.slow{animation-duration:50s;}
@@ -1843,11 +1844,12 @@ window.__pdfLib = (function(){
     {n:"Zabbix",       t:"Premium Delivery Partner", logo:"assets/zabbix.png"},
     {n:"Oracle",       t:"Serviços especializados", logo:"assets/oracle.png"}
   ];
+  /* A faixa de ferramentas é uma lista de nomes: o logotipo pequeno e lavado some
+     no meio da faixa, e um arquivo que falte deixa o cartão vazio. Os logotipos
+     ficam na faixa de parcerias, onde aparecem em tamanho cheio. */
   var TOOLS = [
-    {n:"BMC Helix", logo:"assets/bmc-helix.svg"}, {n:"Control-M", logo:""},
-    {n:"Helix Discovery", logo:""}, {n:"Oracle Exadata", logo:""},
-    {n:"Zabbix", logo:""}, {n:"Prometheus", logo:"assets/prometheus.png"},
-    {n:"Grafana", logo:""}, {n:"InfluxDB", logo:""}
+    {n:"BMC Helix"}, {n:"Control-M"}, {n:"Helix Discovery"}, {n:"Oracle Exadata"},
+    {n:"Zabbix"}, {n:"Prometheus"}, {n:"Grafana"}, {n:"InfluxDB"}
   ];
   var BADGE = "assets/badge-poty-2026.png";
 
@@ -2137,27 +2139,69 @@ window.__pdfLib = (function(){
      Cada visita recebe uma sessão. O registro guarda até onde a pessoa chegou e a pergunta exata
      que estava na tela quando ela parou. Vai para o HubSpot quando o GUID do formulário estiver
      configurado e fica também no navegador do visitante. */
-  var HS_FIELDS=["nome","email","empresa","cargo","telefone","origem","origem_detalhe","origem_completa",
-    "campanha","sessao","status","etapa_alcancada","total_etapas","percentual_concluido",
-    "pergunta_parada","pergunta_parada_id","desafio","resolvedores","usuarios","deteccao","paradas","mttr",
-    "indice","faixa","rota","rota_escolhida","horas_indisponiveis_ano","custo_estimado_ano"];
+  /* ---------------------------------------------------------------
+     DE/PARA COM O HUBSPOT
+     À esquerda, o nome interno da propriedade no HubSpot.
+     À direita, o campo do diagnóstico.
+     Para usar outro nome de propriedade, mude só o lado esquerdo.
+     Toda propriedade listada aqui precisa existir no HubSpot e estar
+     no formulário, senão o HubSpot recusa o envio inteiro.
+     --------------------------------------------------------------- */
+  var HS_MAP = {
+    email:                "email",
+    firstname:            "primeiro_nome",
+    lastname:             "sobrenome",
+    company:              "empresa",
+    jobtitle:             "cargo",
+    phone:                "telefone",
+    diag_status:          "status",
+    diag_pergunta_parada: "pergunta_parada",
+    diag_percentual:      "percentual_concluido",
+    diag_origem:          "origem_completa",
+    diag_campanha:        "campanha",
+    diag_desafio:         "desafio",
+    diag_respostas:       "respostas",
+    diag_indice:          "indice",
+    diag_faixa:           "faixa",
+    diag_dimensoes:       "dimensoes",
+    diag_horas_ano:       "horas_indisponiveis_ano",
+    diag_custo_ano:       "custo_estimado_ano",
+    diag_rota:            "rota",
+    diag_rota_escolhida:  "rota_escolhida",
+    diag_sessao:          "sessao"
+  };
   function perguntaParada(){
-    if(TRACK.concluido) return {t:"",id:""};
+    if(TRACK.concluido) return "";
     var i=TRACK.pergunta;
-    if(typeof i!=="number" || i<0) return {t:"Identificação",id:"identificacao"};
-    if(i>=Q.length) return {t:"",id:""};
-    return {t:(i+1)+"/"+Q.length+" · "+Q[i].title, id:Q[i].id};
+    if(typeof i!=="number" || i<0) return "Identificação";
+    if(i>=Q.length) return "";
+    return (i+1)+"/"+Q.length+" · "+Q[i].title;
+  }
+  /* HubSpot guarda nome e sobrenome separados */
+  function nomePartes(){
+    var p=String(LEAD.nome||"").trim().split(/\s+/).filter(Boolean);
+    return {primeiro:p[0]||"", sobrenome:p.slice(1).join(" ")};
+  }
+  /* as seis respostas por extenso, como o visitante leu na tela */
+  var RESP_ROT=[["desafio","Desafio"],["deteccao","Detecção"],["resolvedores","Equipe"],
+                ["usuarios","Usuários"],["paradas","Paradas em 12 meses"],["mttr","Normalização"]];
+  function respostasTexto(){
+    var L=[];
+    for(var i=0;i<RESP_ROT.length;i++){
+      var id=RESP_ROT[i][0];
+      if(A[id]) L.push(RESP_ROT[i][1]+": "+labelOf(id));
+    }
+    return L.join("\n");
   }
   function basePayload(extra){
-    var pp=perguntaParada();
-    var p={nome:LEAD.nome||"",email:LEAD.email||"",empresa:LEAD.empresa||"",cargo:LEAD.cargo||"",
-      telefone:LEAD.telefone||"",origem:LEAD.origem||"",origem_detalhe:LEAD.origemSub||LEAD.origemTxt||"",
-      origem_completa:LEAD.origem?origemLabel():"",campanha:CFG.CAMPANHA||"Diagnóstico pelo site",
-      sessao:TRACK.sessao,status:TRACK.status,etapa_alcancada:TRACK.etapa,total_etapas:Q.length,
+    var n=nomePartes();
+    var p={email:LEAD.email||"", primeiro_nome:n.primeiro, sobrenome:n.sobrenome,
+      empresa:LEAD.empresa||"", cargo:LEAD.cargo||"", telefone:LEAD.telefone||"",
+      origem_completa:LEAD.origem?origemLabel():"", campanha:CFG.CAMPANHA||"Diagnóstico pelo site",
+      sessao:TRACK.sessao||"", status:TRACK.status||"",
       percentual_concluido:Math.round((TRACK.etapa/Q.length)*100),
-      pergunta_parada:pp.t, pergunta_parada_id:pp.id,
-      desafio:A.desafio||"",resolvedores:A.resolvedores||"",usuarios:A.usuarios||"",
-      deteccao:A.deteccao||"",paradas:A.paradas||"",mttr:A.mttr||"",
+      pergunta_parada:perguntaParada(),
+      desafio:A.desafio?labelOf("desafio"):"", respostas:respostasTexto(),
       rota_escolhida:TRACK.rotaEscolhida||""};
     var k;
     for(k in TRACK.res) if(Object.prototype.hasOwnProperty.call(TRACK.res,k)) p[k]=TRACK.res[k];
@@ -2167,10 +2211,11 @@ window.__pdfLib = (function(){
   function hsSend(extra, beacon){
     if(!CFG.HUBSPOT_FORM_GUID || !LEAD.email) return;
     var p=basePayload(extra), fields=[];
-    for(var i=0;i<HS_FIELDS.length;i++){
-      var k=HS_FIELDS[i];
-      if(Object.prototype.hasOwnProperty.call(p,k))
-        fields.push({name:k,value:(p[k]===null||p[k]===undefined)?"":String(p[k])});
+    for(var prop in HS_MAP){
+      if(!Object.prototype.hasOwnProperty.call(HS_MAP,prop)) continue;
+      var v=p[HS_MAP[prop]];
+      if(v===null || v===undefined || v==="") continue;   /* campo vazio não sobrescreve o que já está no CRM */
+      fields.push({name:prop, value:String(v)});
     }
     var body=JSON.stringify({fields:fields,
       context:{pageUri:location.href,pageName:"Diagnóstico de Maturidade Operacional · Master Support"},
@@ -2633,7 +2678,8 @@ window.__pdfLib = (function(){
       document.getElementById("teaser-go").addEventListener("click", renderResult);
       magnets();
     });
-    trackDone({indice:s.total, faixa:b.label, rota:currentRoute,
+    trackDone({indice:s.total, faixa:b.label, rota:ROUTES[currentRoute].title,
+      dimensoes:s.dims.map(function(d){ return d.k+" "+d.v+"/"+d.max; }).join(" · "),
       horas_indisponiveis_ano:Math.round(c.horas*10)/10, custo_estimado_ano:Math.round(c.custoAno)});
   }
 
@@ -2858,8 +2904,8 @@ window.__pdfLib = (function(){
       });
       var cta=rt.querySelector("[data-route-cta]");
       if(cta) cta.addEventListener("click", function(){
-        var c=cost();
-        TRACK.rotaEscolhida=rt.getAttribute("data-route");
+        var c=cost(), k=rt.getAttribute("data-route");
+        TRACK.rotaEscolhida=ROUTES[k]?ROUTES[k].title:k;
         TRACK.res.custo_estimado_ano=Math.round(c.custoAno);
         saveLocal(); hsSend();
       });
