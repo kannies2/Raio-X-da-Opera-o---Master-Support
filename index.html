@@ -3570,9 +3570,11 @@ function abrirDiagnosticoExistente(data){
   if(idx<0){
     if(!validateIdent()) return;
 
-    verificarDiagnosticoExistente();
+    trackStart();
+    renderGate();
     return;
   }
+
   avancar();
 }
 
